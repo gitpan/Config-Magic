@@ -4,6 +4,7 @@ package Config::Magic;
 use strict;
 use warnings;
 use Parse::RecDescent;
+use Data::Dumper;
 require Exporter;
 
 our @ISA = qw(Exporter);
@@ -21,7 +22,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.74';
+our $VERSION = '0.75';
 
 # Preloaded methods go here.
 
@@ -90,6 +91,25 @@ sub array2hash
 sub section_checker 
  { return [shift,array2hash(shift)]; };
 }
+
+#Variable names must be followed by newline or end tokens.
+#Lookahead assertion takes care of this I hope.
+#They must also NOT start with certain things.
+varname: /.*?(?=[\n\{\}\[\]\(\)=:<>]|\/>|<\/)/ {
+     #Eliminate trailing spaces
+     $item[1]=~s/([^\s])\s*$/$1/;
+     undef;
+     $item[1] if(length($item[1])>0);
+     }
+svar: single  
+    | qvar
+
+qvar: /\'(.*?)(?<!\\\\)\'/ {$1;}
+    | /\"(.*?)(?<!\\\\)\"/ {$1;}
+
+single: /\s*(.*?)(?=[\n\{\}\[\]\(\)=:<>\s]|\/>|<\/|$)/  
+{ $1 if(length($1)>0); }
+
 
 #Ini files are the only kind of section that can't contain more ini files.
 #That's why they're in their own spot. 
@@ -186,24 +206,9 @@ else {$item[1];};
 	  my @return=split(/\s+/,$item[1]);
           if($#return==0) { $return[0]; } else {\@return; };
          }
-#Variable names must be followed by newline or end tokens.
-#Lookahead assertion takes care of this I hope.
-#They must also NOT start with certain things.
-varname: /.*?(?=[\n\{\}\[\]\(\)=:<>]|\/>|<\/)/ {
-     #Eliminate trailing spaces
-     $item[1]=~s/([^\s])\s*$/$1/;
-     undef;
-     $item[1] if(length($item[1])>0);
-     }
-svar: single  
-    | qvar
 
-qvar: /\'(.*?)(?<!\\\\)\'/ {$1;}
-    | /\"(.*?)(?<!\\\\)\"/ {$1;}
-
-single: /\s*(.*?)(?=[\n\{\}\[\]\(\)=:<>\s]|\/>|<\/|$)/  
-{ $1 if(length($1)>0); }
 };
+$::RD_HINT=1;
 $::RD_AUTOACTION =  q{ ($#item>1)?[@item[1..$#item]]:$item[1]};
   $dat{'filename'} = $_[1] if(scalar(@_)==2);
   $dat{'parser'}=new Parse::RecDescent($poop);
@@ -241,7 +246,8 @@ Config::Magic - Perl extension for reading all kinds of configuration files
  }
  }
  #Fastest way:
- print Dumper(Config::Magic::parse($input));
+ $config = new Config::Magic();
+ print Dumper($config->parse($input));
 
  #OO interface:
 
