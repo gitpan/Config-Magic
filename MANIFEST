@@ -1,0 +1,7 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/Config-Magic.t
+lib/Config/Magic.pm
+META.yml                                 Module meta-data (added by MakeMaker)

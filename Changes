@@ -1,0 +1,6 @@
+Revision history for Perl extension Config::Magic.
+
+0.01  Thu Jun 17 19:41:12 2004
+	- original version; created by h2xs 1.23 with options
+		-XA -n Config::Magic
+
