@@ -1,4 +1,6 @@
 Revision history for Perl extension Config::Magic.
+0.76   Dec 8, 2004
+	Workaround for buggy regular expression results from Perl 5.8.4, introduced ordering capability
 0.751  Dec 6, 2004
        Removed debugging information.
 0.75  

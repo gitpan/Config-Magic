@@ -4,7 +4,8 @@ package Config::Magic;
 use strict;
 use warnings;
 use Parse::RecDescent;
-use Data::Dumper;
+#use Data::Dumper;
+#use Tie::IxHash;
 require Exporter;
 
 our @ISA = qw(Exporter);
@@ -22,7 +23,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.751';
+our $VERSION = '0.76';
 
 # Preloaded methods go here.
 
@@ -43,16 +44,25 @@ sub get_result
 {my $self=shift;
 return $self->{'result'} if(exists($self->{'result'})); }
 
+sub setordered
+{my $self=shift;  
+    $self->{'parser'}->{'ordered'}=shift;
+}
+
 sub new {
   my %dat;
-  bless(\%dat);
 
 my $poop = q{
 {
+use Tie::Hash::Indexed;
 sub array2hash
  {
  my $hashref=shift;
- my %hashed;
+ my %hashed; 
+ my $parser = shift;
+ if($parser->{'ordered'}) { 
+ tie(%hashed, "Tie::Hash::Indexed");
+ };
  my @unhashed=@{$hashref};
   for my $elem (@unhashed)
   {
@@ -89,7 +99,7 @@ sub array2hash
  };
 
 sub section_checker 
- { return [shift,array2hash(shift)]; };
+ { return [shift,array2hash(shift,shift)]; };
 }
 
 #Variable names must be followed by newline or end tokens.
@@ -114,14 +124,14 @@ single: /\s*(.*?)(?=[\n\{\}\[\]\(\)=:<>\s]|\/>|<\/|$)/
 #Ini files are the only kind of section that can't contain more ini files.
 #That's why they're in their own spot. 
 #No other type may contain inis, or there would be ambiguity
-sections: section(s)  {array2hash($item[1]);}
+sections: section(s)  {array2hash($item[1],$thisparser);}
 #I'm going backwards - section refers to sections.  This has the potential to 
 #generate infinite recursion, but in this case it will not.
 section:  comment 
        | '<' qvar <commit> xml_1[$item[3]]  {[$item[2],$item[4]]}
        | '<' <commit> svar xml_1[$item[3]]  {[$item[3],$item[4]]}
-       | ini_name <commit> strict_assign(s?) {section_checker($item[1],$item[3])}
-       | varname bracket_section {section_checker($item[1],$item[2]); }
+       | ini_name <commit> strict_assign(s?) {section_checker($item[1],$item[3],$thisparser)}
+       | varname bracket_section {section_checker($item[1],$item[2],$thisparser); }
        | assign 
 
 bracket_section: '(' section(s?) ')' {$item[2]}
@@ -130,9 +140,9 @@ bracket_section: '(' section(s?) ')' {$item[2]}
 xml_1 : xml_single 
       | xml_full section(s?) "</" "$arg[0]" ">" 
           {
-	   push (@{$item[2]},@{$item[1]}); 
+	   unshift (@{$item[2]},@{$item[1]}); 
 	   #else {unshift(@{$item[2]},[$item[1]]);}
-	   array2hash($item[2]);
+	   array2hash($item[2],$thisparser);
 	  }
 #I know it seems redundant, but it's because there's a flaw in the parser: 
 # if it succeeds in a production, but it succeeds in the wrong path, it won't try again down a different one.
@@ -153,12 +163,12 @@ xml_full: varlist ">" {
 
 comment: /#.*?\n/ {[0]}
 #C++ style comment
-       | "\\\\" /.*?\n/ {[0]}
+       | '//' /.*?\n/ {[0]}
        | /;.*?\n/ {[0]}
 
-assigns: assign(s?) {array2hash($item[1])}
+assigns: assign(s?) {array2hash($item[1],$thisparser)}
 
-xml_assigns: xml_assign(s?) {array2hash($item[1])}
+xml_assigns: xml_assign(s?) {array2hash($item[1],$thisparser)}
 
 ini_name: /\[([^\n#]*)\]/  {$1}
 
@@ -182,7 +192,7 @@ csv: qvar ',' {$item[1]}
 tsv: /([^\n#]*?)\t/ {$1;}
 #There should be only one variable on the left.  If more than one are quoted, then it means that there are more than one on the left.
 left:  qvar /(=>|:=|:|=)/ {$item[1]}
-    |  /([^\{\}<>\(\)\[\]\n#]+?)(=>|:=|:|=|==)/ {$1;}
+    |  /([^\{\}<>\(\)\[\]\n#]+?)((?:=>|:|:|=)=?)/ {$1;}
     |  csv 
     |  svar 
 
@@ -208,10 +218,14 @@ else {$item[1];};
          }
 
 };
-$::RD_HINT=0;
+#$::RD_HINT=1;
 $::RD_AUTOACTION =  q{ ($#item>1)?[@item[1..$#item]]:$item[1]};
-  $dat{'filename'} = $_[1] if(scalar(@_)==2);
+  $dat{'filename'} = $_[1] if(scalar(@_)>1);
   $dat{'parser'}=new Parse::RecDescent($poop);
+  $dat{'parser'}->{'ordered'} = 0;
+  $dat{'parser'}->{'ordered'} = $_[2] if(scalar(@_)>2);
+  bless $dat{'parser'}, "Parse::RecDescent";
+  bless(\%dat);
   return \%dat;
 }
 1;
@@ -249,55 +263,55 @@ Config::Magic - Perl extension for reading all kinds of configuration files
  $config = new Config::Magic();
  print Dumper($config->parse($input));
 
- #OO interface:
-
- $config = new Config::Magic("input.conf");
+ #Arguments with sorting
+ $ordered_hash = 1;
+ $config = new Config::Magic("input.conf",$ordered_hash);
  print Dumper($config->parse);
  $result = $config->get_result;
  print Dumper($result);
 
-=head2 OUTPUT (from first example)
 
+=head2 OUTPUT (from second example)
 
+  'Section 1' => {
+    'Section 4' => {
+      'Monkey' => [
+        '1',
+        '2',
+        '3'
+      ]
+    },
+    'Section' => [
+      {
+        '2' => {},
+        'Foo ' => 'Bar',
+        'Baz' => {
+          'Bip' => '1',
+          'Pants' => '5'
+        }
+      },
+      {
+        '5' => {},
+        'Foo' => [
+          'Bippity',
+          'boppity',
+          'boo'
+        ]
+      }
+    ],
+    'Tasty' => {
+      'Cheese' => {}
+    }
+  }
 
- $VAR1 = {
-          'Section 1' => {
-                           'Tasty' => {
-                                        'Cheese' => '3'
-                                      },
-                           'Section' => [
-                                          {
-                                            'Foo ' => 'Bar',
-                                            'Baz' => {
-                                                       'Bip' => '1',
-                                                       'Pants' => '5'
-                                                     },
-                                            '2' => {}
-                                          },
-                                          {
-                                            'Foo' => [
-                                                       'Bippity',
-                                                       'boppity',
-                                                       'boo'
-                                                     ],
-                                            '5' => {}
-                                          }
-                                        ],
-                           'Section 4' => {
-                                            'Monkey' => [
-                                                          '1',
-                                                          '2',
-                                                          '3'
-                                                        ]
-                                          }
-                         }
-        };
+ 
 
 =head1 DESCRIPTION
 
 This module uses Parse::RecDescent to generate a parse tree for nearly any kind of configuration file.  You can even combine files/configuration types.  It understands XML, Apache-style, ini files, csv files, and pretty much everything else I could find.  Just give it a file, and get a hash tree out.  If it doesn't understand the file, or it isn't well formed (such as if a bracket is missing, etc), then you will get a partial result, or no result at all.
 
-There are no configuration options for this module.  It's just supposed to work.  The only ways it can be used are the ones shown in the synopsis, though it should recognize almost every kind of configuration file.
+There is a single option that can be passed to this file which indicates that the resulting hash should be ordered rather than random.  This is done using Tie::Hash::Indexed.  You can also call "setordered" directly to change from using ordered to unordered hashes.
+
 
 =head1 ABOUT THE GRAMMAR
 
