@@ -21,7 +21,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.7';
+our $VERSION = '0.71';
 
 # Preloaded methods go here.
 
@@ -243,7 +243,7 @@ Config::Magic - Perl extension for reading all kinds of configuration files
  #Fastest way:
  print Dumper(Config::Magic::parse($input));
 
-#OO interface:
+ #OO interface:
 
  $config = new Config::Magic("input.conf");
  print Dumper($config->parse);
@@ -254,7 +254,7 @@ Config::Magic - Perl extension for reading all kinds of configuration files
 
 
 
-$VAR1 = {
+ $VAR1 = {
           'Section 1' => {
                            'Tasty' => {
                                         'Cheese' => '3'
@@ -306,6 +306,7 @@ Right now, the system recognizes three types of comments:  Those beginning with 
 Almost all kinds of sections can hold other sections, allowing nesting.  Each section will be represented in the hash tree as a hash, and each element will be a tuple in the hash.  
 
 Kinds of sections:  
+
 =head3 INI section 
 
 exactly like a Windows INI file.  Because of the structure, these do not contain other sections - only assignments.
