@@ -21,7 +21,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.71';
+our $VERSION = '0.72';
 
 # Preloaded methods go here.
 
@@ -311,6 +311,7 @@ Kinds of sections:
 
 exactly like a Windows INI file.  Because of the structure, these do not contain other sections - only assignments.
 Example:
+
  [Section 1]
  a = b
  c : d
@@ -330,9 +331,9 @@ The key thing to remember about XML statements is that within the block, only th
 
 There are three kinds of these.  The easiest way to see them is to see examples:
 
-Section 1 { statements... }
-Section 2 (Statements)
-Section 3 [Statements]
+ Section 1 {Statements}
+ Section 2 (Statements)
+ Section 3 [Statements]
 
 Note that the third kind of statement might be confused for an INI if it contains only a singleton.  For this reason, the ONLY way to specify this kind of statement is if the block element "[" is on the same line as the section name declaration.  Otherwise, any amount of white space can separate the section name from it's declaration.
 
@@ -346,9 +347,8 @@ If you use any of these, whatever is on the left is considered the left side of 
 Note that each word (anything that doesn't contain spaces) on the right is considered a single operand, so this assignment:
  Left side=Right side
 
-Will produce this:
-
- 'Left side' => [
+ Will produce this:
+'Left side' => [
                 'Right',
 		'Side'
 		]
@@ -367,15 +367,15 @@ Example:
 
 If there is no right side, the value will be passed along as a singleton.  HOWEVER, in order to allow both singletons and lists together, it will become a key in a hash with the value equal to a reference to an empty hash.  This behaviour may change in the future depending on user input.
 
-Example assignments:
-Value=1
-5
+ Example assignments:
+ Value=1
+ 5
 
-Output:
-{
- Value=>'1',
- 5    =>{}
-}
+ Output:
+ {
+  Value=>'1',
+  5    =>{}
+ }
 
 =head2 Quotes and Quote Effects
 
@@ -386,9 +386,11 @@ Quotes may also be multiline.  For this reason, neglecting to end a quote may ha
 If you wish to use a quote within one of your elements, quote it with the other kind of quote.  
 
 Example input assignment:
- '"Fire bad"'
+
+'"Fire bad"'
 
 Output:
+
  {
   '"Fire bad"'=>{}
  }
@@ -429,6 +431,7 @@ There are also some things that happen when using ini files that make it difficu
  }
 
 In this example, section 2 is an abiguity.  Is "Section2" a singleton from an ini section, or as the beginning title of a section?  If you combine INI files with other kinds, you must use beginning section markers on their own lines.  Note that this could change if there are improvements made to Parse::RecDescent.
+
 =head2 FIXED EXAMPLE:
 
  [Section 1]

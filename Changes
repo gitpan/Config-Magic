@@ -1,6 +1,6 @@
 Revision history for Perl extension Config::Magic.
 
-0.71  Tue Jun 22
+0.72  Tue Jun 22
        Fixed a few problems with the POD documentation
 0.7   Tue Jun 22
         - Added XML, documentation, made it run, etc.
