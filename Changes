@@ -1,4 +1,6 @@
 Revision history for Perl extension Config::Magic.
+0.74  Thu July 1
+       Added missing dependency in the Makefile.PL file.
 0.73  Thu June 24
        Allow backslashed quotes. Fixed a problem in the comments
 0.72  Tue Jun 22
