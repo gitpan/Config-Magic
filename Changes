@@ -1,4 +1,8 @@
 Revision history for Perl extension Config::Magic.
+0.751  Dec 6, 2004
+       Removed debugging information.
+0.75  
+       Moved some things around to deal with a bug in the parent module.
 0.74  Thu July 1
        Added missing dependency in the Makefile.PL file.
 0.73  Thu June 24

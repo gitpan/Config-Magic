@@ -22,7 +22,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.75';
+our $VERSION = '0.751';
 
 # Preloaded methods go here.
 
@@ -208,7 +208,7 @@ else {$item[1];};
          }
 
 };
-$::RD_HINT=1;
+$::RD_HINT=0;
 $::RD_AUTOACTION =  q{ ($#item>1)?[@item[1..$#item]]:$item[1]};
   $dat{'filename'} = $_[1] if(scalar(@_)==2);
   $dat{'parser'}=new Parse::RecDescent($poop);
