@@ -1,5 +1,6 @@
 Revision history for Perl extension Config::Magic.
-
+0.73  Thu June 24
+       Allow backslashed quotes. Fixed a problem in the comments
 0.72  Tue Jun 22
        Fixed a few problems with the POD documentation
 0.7   Tue Jun 22

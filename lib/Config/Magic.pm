@@ -21,7 +21,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.72';
+our $VERSION = '0.73';
 
 # Preloaded methods go here.
 
@@ -198,8 +198,8 @@ varname: /.*?(?=[\n\{\}\[\]\(\)=:<>]|\/>|<\/)/ {
 svar: single  
     | qvar
 
-qvar: /\'(.*?)\'/ {$1;}
-    | /\"(.*?)\"/ {$1;}
+qvar: /\'(.*?)(?<!\\\\)\'/ {$1;}
+    | /\"(.*?)(?<!\\\\)\"/ {$1;}
 
 single: /\s*(.*?)(?=[\n\{\}\[\]\(\)=:<>\s]|\/>|<\/|$)/  
 { $1 if(length($1)>0); }
@@ -395,7 +395,7 @@ Output:
   '"Fire bad"'=>{}
  }
 
-Note that the double quotes remain.  There is currently no way to escape a quote, simply because I don't know how to recognize and ignore that while also recognizing quotes within a regular expression.  If anyone knows, I'd be glad to hear it.
+Note that the double quotes remain.  You can also escape a quote.
 
 =head2 EXPORT
 
@@ -427,8 +427,8 @@ There are also some things that happen when using ini files that make it difficu
  Singleton2
  Singleton3
  Section2
- {Section stuff
- }
+ [Section stuff
+ ]
 
 In this example, section 2 is an abiguity.  Is "Section2" a singleton from an ini section, or as the beginning title of a section?  If you combine INI files with other kinds, you must use beginning section markers on their own lines.  Note that this could change if there are improvements made to Parse::RecDescent.
 
@@ -438,9 +438,9 @@ In this example, section 2 is an abiguity.  Is "Section2" a singleton from an in
  Singleton1
  Singleton2
  Singleton3
- Section2 {
+ Section2 [
  Section stuff
- }
+ ]
 
 Finally, it is quite likely that there are many bugs remaining of which the author is unaware.
 
