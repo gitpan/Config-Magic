@@ -3,7 +3,7 @@ package Config::Magic;
 #use 5.008002;
 use strict;
 use warnings;
-use Parse::RecDescent;
+use Config::Magic::Grammar
 #use Data::Dumper;
 #use Tie::IxHash;
 require Exporter;
@@ -23,20 +23,20 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.76';
+our $VERSION = '0.80';
+#Used to turn on and off newline checking.  Some techniques can skip over newlines, and some can't.
 
 # Preloaded methods go here.
-
 sub parse
 {
 my $self=shift;
 my ($FILE,$text);
-return $self->{'parser'}->sections(shift) if(scalar(@_));
+return $self->{'parser'}->start(shift) if(scalar(@_));
 open(FILE,"<".$self->{'filename'}) || die "Unable to open file " . $self->{'filename'} . " in Config::Magic\n";
 my @lines=<FILE>;
 close(FILE);
 for my $line (@lines) {$text .= $line; };
-$self->{'result'}=$self->{'parser'}->sections($text);
+$self->{'result'}=$self->{'parser'}->start($text);
 return $self->{'result'};
 }
 
@@ -55,6 +55,10 @@ sub new {
 my $poop = q{
 {
 use Tie::Hash::Indexed;
+use Data::Dumper;
+my  $withoutnewline = qr{([\t\r ]*|(\/[*].*?[*]\/))*};
+my  $withnewline =qr{(\s*|(\/[*].*?[*]\/)|((#|;|\/\/).*?\n))*}sm;
+
 sub array2hash
  {
  my $hashref=shift;
@@ -66,7 +70,7 @@ sub array2hash
  my @unhashed=@{$hashref};
   for my $elem (@unhashed)
   {
-   if($$elem[0])
+   if(ref $elem eq 'ARRAY')
    {
    if(scalar(@{$elem})==2)
    {
@@ -82,7 +86,8 @@ sub array2hash
        }
        else { $hashed{$$elem[0]} = [$hashed{$$elem[0]},$$elem[1]]; }
     } 
-    else { $hashed{$$elem[0]}=$$elem[1]; 
+    else {
+    	$hashed{$$elem[0]}=$$elem[1]; 
          if(ref($hashed{$$elem[0]})=~/ARRAY/) {
 	     push @{$hashed{$$elem[0]}},'loQuaTistop'; }
 	   #Add this as a marker to show that nothing has yet been added to the array.
@@ -93,7 +98,9 @@ sub array2hash
   };
    for my $key (%hashed) {
     if(ref($hashed{$key})=~/ARRAY/)
-    { delete($hashed{$key}[scalar@{$hashed{$key}}-1]) if($hashed{$key}[scalar(@{$hashed{$key}})-1]=~/loQuaTistop/); }
+    {
+    delete($hashed{$key}[scalar(@{$hashed{$key}})-1]) if($hashed{$key}[scalar(@{$hashed{$key}})-1]=~/loQuaTistop/); 
+    };
    };
   return \%hashed;
  };
@@ -105,42 +112,46 @@ sub section_checker
 #Variable names must be followed by newline or end tokens.
 #Lookahead assertion takes care of this I hope.
 #They must also NOT start with certain things.
-varname: /.*?(?=[\n\{\}\[\]\(\)=:<>]|\/>|<\/)/ {
+varname: /[^\s]+?(?=[\n\{\}\[\]\(\)=:<>]|\/>|<\/)/ {
      #Eliminate trailing spaces
      $item[1]=~s/([^\s])\s*$/$1/;
      undef;
      $item[1] if(length($item[1])>0);
      }
-svar: single  
-    | qvar
 
-qvar: /\'(.*?)(?<!\\\\)\'/ {$1;}
-    | /\"(.*?)(?<!\\\\)\"/ {$1;}
+svar: /\'(.+?)\'/sm {$1;}
+    | /\"(.+?)"/sm {$1;}
+    | /([^\{\}\[\]\(\)=:<>\/\\,#;\s]+)/  {
+    $1; #Old pattern: (?=[\n\{\}\[\]\(\)=:<>\s]|\/>|<\/|$)
+    #New pattern is more strict.  No reserved characters allowed at all, and no spaces.
+    }
 
 single: /\s*(.*?)(?=[\n\{\}\[\]\(\)=:<>\s]|\/>|<\/|$)/  
-{ $1 if(length($1)>0); }
+{ $1 if(length($1)>0); #This has been deprecated (too slow). Only using svar now.
+}
 
 
 #Ini files are the only kind of section that can't contain more ini files.
 #That's why they're in their own spot. 
 #No other type may contain inis, or there would be ambiguity
-sections: section(s)  {array2hash($item[1],$thisparser);}
+start: section(s)  { array2hash($item[1],$thisparser);}
 #I'm going backwards - section refers to sections.  This has the potential to 
 #generate infinite recursion, but in this case it will not.
-section:  comment 
-       | '<' qvar <commit> xml_1[$item[3]]  {[$item[2],$item[4]]}
-       | '<' <commit> svar xml_1[$item[3]]  {[$item[3],$item[4]]}
+section:   '<' svar <commit> xml_1[$item[2]]  {[$item[2],$item[4]]}
        | ini_name <commit> strict_assign(s?) {section_checker($item[1],$item[3],$thisparser)}
-       | varname bracket_section {section_checker($item[1],$item[2],$thisparser); }
+       | varlist bracket_section {my $title = $item[1]; 
+                                  $title = join(' ',@{$item[1]}) if(ref $item[1] eq 'ARRAY');
+                                  section_checker($title,$item[2],$thisparser); 
+				 }
        | assign 
 
 bracket_section: '(' section(s?) ')' {$item[2]}
                | '{' section(s?) '}' {$item[2]}
-	       | <skip: "[ \t\r]*"> '[' <skip: "\s*"> section(s?) ']' {$item[2]}
+	       | <skip: $withoutnewline> '[' <skip: $withnewline> section(s?) ']' {$item[2]}
 xml_1 : xml_single 
       | xml_full section(s?) "</" "$arg[0]" ">" 
           {
-	   unshift (@{$item[2]},@{$item[1]}); 
+	   unshift (@{$item[2]},$item[1]); 
 	   #else {unshift(@{$item[2]},[$item[1]]);}
 	   array2hash($item[2],$thisparser);
 	  }
@@ -150,78 +161,80 @@ xml_1 : xml_single
 xml_single: varlist "/>" {$item[1]} | xml_assigns "/>" {$item[1]} | "/>" {[]}
 #This thing requires arrays.
 xml_full: varlist ">" {
-	 if(ref($item[1])=~/ARRAY/) {
-          my @return;
-	  for my $it (@{$item[1]})
-	   { push(@return,[$it]); };
-	   \@return;
-	  }
-	 else {[[$item[1]]]; };
+	 #if(ref($item[1])=~/ARRAY/) {
+          ["attribs",$item[1]];
+	  #for my $it (@{$item[1]})
+	  # { push(@return,$it); };
+	  # \@return;
+	#  }
+	 #else {["attribs",$item[1]]; };
 	} 
-        | xml_assigns ">"  {$item[1]} 
+        | xml_assigns ">"  { ["attribs",$item[1]];} 
 	| ">"  {[]}
-
-comment: /#.*?\n/ {[0]}
-#C++ style comment
-       | '//' /.*?\n/ {[0]}
-       | /;.*?\n/ {[0]}
 
 assigns: assign(s?) {array2hash($item[1],$thisparser)}
 
-xml_assigns: xml_assign(s?) {array2hash($item[1],$thisparser)}
+xml_assigns: xml_assign(s?) {array2hash($item[1])}
+xml_assign: left <skip: $withoutnewline> svar { [$item[1],$item[3]] }
 
 ini_name: /\[([^\n#]*)\]/  {$1}
 
 #The difference between normal and xml is that xml only has single variables on the right side, and 
 #there's no space separated
-xml_assign: left <skip: '[ \t\r]*'> svar
 
 
 #The tokens are sacred unless quotes are used.
 #If the first match failed, it means that we failed to find any assignment operator.  
 #  If this is the case, we will assume it is without the operator.
 #  Note that it the right is allowed to return an empty array/singleton by design.
-assign: comment | 
-      left <skip: '[ \t\r]*'> right {[$item[1],$item[3]]}
-      | <skip:'[ \t\r]*'>svar {[$item[2]]}
+assign:  left <skip: $withoutnewline> right {[$item[1],$item[3]]}
+      | <skip: $withoutnewline >svar {[$item[2]]}
 
-csvlist: csv(s) <skip:'[ \t\r]*'> /([^\n#]*?)\n/
+csvlist: csv(s) <skip: $withoutnewline > /([^\n#]*?)\n/
           { [@{$item[1]},$1]; }
-csv: qvar ',' {$item[1]} 
+csv: svar ',' {$item[1]} 
    | /([^\n#;]*?),/ {$1;}
 tsv: /([^\n#]*?)\t/ {$1;}
 #There should be only one variable on the left.  If more than one are quoted, then it means that there are more than one on the left.
-left:  qvar /(=>|:=|:|=)/ {$item[1]}
-    |  /([^\{\}<>\(\)\[\]\n#]+?)((?:=>|:|:|=)=?)/ {$1;}
+left:  svar /(=>|:=|:|=)/ {$item[1]}
+    |  /([^\{\}<>\(\)\[\]\n#]+?)((?:=>|:|=)=?)/ {$1;}
     |  csv 
     |  svar 
 
-right: csvlist  {$item[1]} | varlist  {$item[1]}
+right: csvlist  {$item[1]} | 
+       varlist  {$item[1]}
 
 #This is for ini files.  Each variable list must end at the end of a line.  This is to keep them
 #From being confused with other types of files.
-strict_assign: comment  
-      | left <skip: '[ \t\r]*'> strict_right {[$item[1],$item[3]]}
-      | <skip:'[ \t\r]*'>svar "\n" {[$item[2]]}
-strict_right: csvlist "\n" {$item[1]} | varlist "\n" {$item[1]}
+strict_assign:   left <skip: $withoutnewline> strict_right {[$item[1],$item[3]]}
+      | <skip: $withoutnewline >svar "\n" {[$item[2]]}
+strict_right: csvlist "\n" {$item[1]} | 
+              varlist "\n" {$item[1]}
 
 #This is supposed to be a flat list.  If it isn't, you're doing something wrong.  Stop it.
-varlist: qvar varlist(?) 
+varlist: svar(s) 
 {
-if(scalar(@{$item[2]->[0]})) { unshift(@{$item[2]->[0]},$item[1]);  $item[2]->[0];}
-else {$item[1];};
+if(@{$item[1]}==1) { $item[1]->[0] ; }
+else {$item[1]};
+#print (@item);
+#if(scalar($item[2]) && scalar(@{$item[2]->[0]})) { unshift(@{$item[2]->[0]},$item[1]);  $item[2]->[0];}
+#else {$item[1];};
 }
-       | varname 
-         {
-	  my @return=split(/\s+/,$item[1]);
-          if($#return==0) { $return[0]; } else {\@return; };
-         }
+#       | varname 
+#         {
+	 #This part is now deprecated.  More sophisticated variable matching now.
+#	  my @return=split(/\s+/,$item[1]);
+#          if($#return==0) { $return[0]; } else {\@return; };
+#         }
 
 };
 #$::RD_HINT=1;
 $::RD_AUTOACTION =  q{ ($#item>1)?[@item[1..$#item]]:$item[1]};
+#  $::RD_TRACE=1;
   $dat{'filename'} = $_[1] if(scalar(@_)>1);
-  $dat{'parser'}=new Parse::RecDescent($poop);
+#  $dat{'parser'}=new Parse::RecDescent($poop);
+  $dat{'parser'}=Config::Magic::Grammar->new();
+#  $dat{parser}->{skip}=qr{((\/[*].*?[*]\/)|((#|;|\/\/).*?\n)|\s)*}sm;
   $dat{'parser'}->{'ordered'} = 0;
   $dat{'parser'}->{'ordered'} = $_[2] if(scalar(@_)>2);
   bless $dat{'parser'}, "Parse::RecDescent";
@@ -235,6 +248,8 @@ __END__
 Config::Magic - Perl extension for reading all kinds of configuration files
 
 =head1 SYNOPSIS
+
+=head2 Example 1
 
  use Config::Magic; 
  use Data::Dumper;
@@ -263,7 +278,12 @@ Config::Magic - Perl extension for reading all kinds of configuration files
  $config = new Config::Magic();
  print Dumper($config->parse($input));
 
- #Arguments with sorting
+=head2 Example 2
+
+ use Config::Magic; 
+ use Data::Dumper;
+
+#Arguments with sorting
  $ordered_hash = 1;
  $config = new Config::Magic("input.conf",$ordered_hash);
  print Dumper($config->parse);
@@ -291,7 +311,7 @@ Config::Magic - Perl extension for reading all kinds of configuration files
         }
       },
       {
-        '5' => {},
+        attribs=>5, 
         'Foo' => [
           'Bippity',
           'boppity',
@@ -300,7 +320,7 @@ Config::Magic - Perl extension for reading all kinds of configuration files
       }
     ],
     'Tasty' => {
-      'Cheese' => {}
+      'Cheese' => {
     }
   }
 
@@ -319,7 +339,7 @@ Basically, config files as I know them can be broken down into three kinds of th
 
 =head2 Comments
 
-Right now, the system recognizes three types of comments:  Those beginning with ;, those beginning with //, and those beginning with #.  Obviously you can interrupt any other type of token with a comment EXCEPT quotes.
+Right now, the system recognizes four types of comments:  Those beginning with ';', those beginning with '//', those beginning with '#', and C style (beginning with '/*' and ending with '*/'.  Obviously you can interrupt any other type of token with a comment EXCEPT quotes.  All comments run until the end of the line except C-style comments.
 
 =head2 Sections
 
@@ -345,7 +365,7 @@ There are two flavors of this: an XML singleton, and an XML block statement
  Block:
  <Just one:two >Heres==more</Just>
 
-The key thing to remember about XML statements is that within the block, only the first word is considered the name of the section.  Beyond that are either assignments, or an array which acts as a variable list.  Unlike most assignments, xml assignments are only to single variables - never to arrays.
+The key thing to remember about XML statements is that within the block, only the first word is considered the name of the section.  Beyond that are either assignments, or an array which acts as a variable list.  Unlike most assignments, xml assignments are only to single variables - never to arrays.  Further, in the case of XML blocks, the assignments within the blocks are put into a variable called "attribs" to distiguish elements in the body of the block from attributes that are not.
 
 =head3 Bracket Section
 

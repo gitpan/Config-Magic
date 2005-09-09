@@ -25,7 +25,7 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-	Parse::RecDescent
+	Parse::RecDescent,Tie::Hash::Indexed (only for ordered sorting)
 
 COPYRIGHT AND LICENCE
 
