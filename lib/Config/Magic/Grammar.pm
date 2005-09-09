@@ -1,5 +1,6 @@
 package Config::Magic::Grammar;
 use Parse::RecDescent;
+our $skip=qr{((\/[*].*?[*]\/)|((?:#|;|(?:\/\/)).*?\n)|\s)*}sm;
 
 { my $ERRORS;
 
@@ -7,7 +8,7 @@ use Parse::RecDescent;
 package Parse::RecDescent::Config::Magic::Grammar;
 use strict;
 use vars qw($skip $AUTOLOAD  );
-$skip=qr{((\/[*].*?[*]\/)|((#|;|\/\/).*?\n)|\s)*}sm;
+
 use Tie::Hash::Indexed;
 use Data::Dumper;
 my  $withoutnewline = qr{([\t\r ]*|(\/[*].*?[*]\/))*};
@@ -3954,7 +3955,7 @@ sub Parse::RecDescent::Config::Magic::Grammar::svar
 	while (!$_matched && !$commit)
 	{
 		
-		Parse::RecDescent::_trace(q{Trying production: [/([^\\\{\\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]+)/]},
+		Parse::RecDescent::_trace(q{Trying production: [/((?:(?:\\/[^>\\/])|(?:[^\\\{\\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]))+)/]},
 					  Parse::RecDescent::_tracefirst($_[1]),
 					  q{svar},
 					  $tracelevel)
@@ -3967,7 +3968,7 @@ sub Parse::RecDescent::Config::Magic::Grammar::svar
 		my $repcount = 0;
 
 
-		Parse::RecDescent::_trace(q{Trying terminal: [/([^\\\{\\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]+)/]}, Parse::RecDescent::_tracefirst($text),
+		Parse::RecDescent::_trace(q{Trying terminal: [/((?:(?:\\/[^>\\/])|(?:[^\\\{\\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]))+)/]}, Parse::RecDescent::_tracefirst($text),
 					  q{svar},
 					  $tracelevel)
 						if defined $::RD_TRACE;
@@ -3975,7 +3976,7 @@ sub Parse::RecDescent::Config::Magic::Grammar::svar
 		$expectation->is(q{})->at($text);
 		
 
-		unless ($text =~ s/\A($skip)/$lastsep=$1 and ""/e and   $text =~ s/\A(?:([^\{\}\[\]\(\)=:<>\/\\,#;\s]+))//)
+		unless ($text =~ s/\A($skip)/$lastsep=$1 and ""/e and   $text =~ s/\A(?:((?:(?:\/[^>\/])|(?:[^\{\}\[\]\(\)=:<>\/\\,#;\s]))+))//)
 		{
 			
 			$expectation->failed();
@@ -4018,7 +4019,7 @@ sub Parse::RecDescent::Config::Magic::Grammar::svar
 		
 
 
-		Parse::RecDescent::_trace(q{>>Matched production: [/([^\\\{\\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]+)/]<<},
+		Parse::RecDescent::_trace(q{>>Matched production: [/((?:(?:\\/[^>\\/])|(?:[^\\\{\\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]))+)/]<<},
 					  Parse::RecDescent::_tracefirst($text),
 					  q{svar},
 					  $tracelevel)
@@ -7137,9 +7138,9 @@ else {$item[1]};
                                                                        'actcount' => 1,
                                                                        'items' => [
                                                                                     bless( {
-                                                                                             'pattern' => '([^\\{\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]+)',
+                                                                                             'pattern' => '((?:(?:\\/[^>\\/])|(?:[^\\{\\}\\[\\]\\(\\)=:<>\\/\\\\,#;\\s]))+)',
                                                                                              'hashname' => '__PATTERN1__',
-                                                                                             'description' => '/([^\\\\\\{\\\\\\}\\\\[\\\\]\\\\(\\\\)=:<>\\\\/\\\\\\\\,#;\\\\s]+)/',
+                                                                                             'description' => '/((?:(?:\\\\/[^>\\\\/])|(?:[^\\\\\\{\\\\\\}\\\\[\\\\]\\\\(\\\\)=:<>\\\\/\\\\\\\\,#;\\\\s]))+)/',
                                                                                              'lookahead' => 0,
                                                                                              'rdelim' => '/',
                                                                                              'line' => 69,

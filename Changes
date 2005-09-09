@@ -1,4 +1,6 @@
 Revision history for Perl extension Config::Magic.
+0.801  Sep 9, 2005
+        Fixed a problem with the new stricter variable names so that it will work with Apache style.
 0.80   Sep 9, 2005
         Made it run faster using precompiling and fixed some bugs.  Made variable names a little stricter to remove some ambiguity.
 	Made comments part of "skip" instead of their own section.  Added C style comments.
